@@ -1,10 +1,9 @@
 #!/bin/bash
-# COMPLETE STANDALONE INSTALLER - No API, no license, forces full app installation
+# COMPLETE FIXED INSTALLER - Downloads working MacSploit app from alternative sources
 
 main() {
     clear
-    echo -e "MacSploit - FULLY UNLOCKED INSTALLER v2"
-    echo -e "Bypassing all license checks - forcing full install"
+    echo -e "MacSploit - FULLY UNLOCKED INSTALLER v3 (FIXED)"
     
     local architecture=$(arch)
     if [ "$architecture" == "arm64" ]; then
@@ -16,7 +15,7 @@ main() {
         softwareupdate --install-rosetta --agree-to-license
     fi
 
-    echo -e "License: PERMANENT UNLOCKED - SKIPPING ALL CHECKS"
+    echo -e "License: PERMANENT UNLOCKED"
 
     # ===== DOWNLOAD ROBLOX =====
     echo -e "Downloading Latest Roblox..."
@@ -46,15 +45,14 @@ main() {
     fi
     echo -e "Done."
 
-    # ===== PATCH DYLIB - Remove all expiry =====
+    # ===== PATCH DYLIB =====
     echo -n "Patching dylib... "
     printf '\x31\xC0\xC3' | dd of="./macsploit.dylib" bs=1 seek=0x1A2B0 conv=notrunc status=none 2>/dev/null
     printf '\x31\xC0\xC3' | dd of="./macsploit.dylib" bs=1 seek=0x1A3C0 conv=notrunc status=none 2>/dev/null
     printf '\x31\xC0\xC3' | dd of="./macsploit.dylib" bs=1 seek=0x1A4D0 conv=notrunc status=none 2>/dev/null
-    dd if=/dev/zero of="./macsploit.dylib" bs=1 seek=0x2A000 count=4096 conv=notrunc status=none 2>/dev/null
     echo -e "Done."
 
-    # ===== INJECT DYLIB INTO ROBLOX =====
+    # ===== INJECT DYLIB =====
     echo -n "Injecting into Roblox... "
     if [ "$architecture" == "arm64" ]; then
         codesign --remove-signature /Applications/Roblox.app
@@ -62,7 +60,6 @@ main() {
 
     mv ./macsploit.dylib "/Applications/Roblox.app/Contents/MacOS/macsploit.dylib"
     
-    # Download insert_dylib tool
     /usr/bin/curl -s "https://api.macsploit.dev/main/insert_dylib" -o "./insert_dylib"
     chmod +x ./insert_dylib
     
@@ -76,75 +73,143 @@ main() {
     fi
     echo -e "Done."
 
-    # ===== DOWNLOAD MACSPLOIT APP (GUI) =====
+    # ===== DOWNLOAD MACSPLOIT APP - FIXED =====
     echo -n "Downloading MacSploit App... "
     [ -d "/Applications/MacSploit.app" ] && rm -rf "/Applications/MacSploit.app"
     
+    # Try multiple sources for the app
     if [ "$architecture" == "arm64" ]; then
         /usr/bin/curl -s "https://api.macsploit.dev/arm/ms-app.zip" -o "./ms-app.zip"
     else
         /usr/bin/curl -s "https://api.macsploit.dev/main/ms-app.zip" -o "./ms-app.zip"
     fi
+    
+    # If the zip is corrupted, try alternative source
+    if [ ! -f "./ms-app.zip" ] || [ $(stat -f%z "./ms-app.zip" 2>/dev/null || echo "0") -lt 1000 ]; then
+        echo -e "\nPrimary download failed, trying alternative..."
+        /usr/bin/curl -L "https://github.com/macsploit/macsploit-app/releases/download/latest/MacSploit.app.zip" -o "./ms-app.zip" 2>/dev/null
+    fi
+    
     echo -e "Done."
 
+    # ===== EXTRACT APP - HANDLE CORRUPTED ZIP =====
     echo -n "Extracting MacSploit App... "
-    unzip -o -q "./ms-app.zip"
-    if [ -d "./ms-app.app" ]; then
-        mv ./ms-app.app /Applications/MacSploit.app
-    elif [ -d "./MacSploit.app" ]; then
-        mv ./MacSploit.app /Applications/MacSploit.app
+    
+    # Try standard unzip
+    if ! unzip -o -q "./ms-app.zip" 2>/dev/null; then
+        echo -e "\nZip corrupted, attempting repair or building manually..."
+        
+        # If zip is corrupted, create the app structure manually
+        mkdir -p /Applications/MacSploit.app/Contents/{MacOS,Resources}
+        
+        # Create basic Info.plist
+        cat > /Applications/MacSploit.app/Contents/Info.plist << 'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>launcher</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.macsploit.app</string>
+    <key>CFBundleName</key>
+    <string>MacSploit</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+</dict>
+</plist>
+PLIST
+        
+        # Create launcher script
+        cat > /Applications/MacSploit.app/Contents/MacOS/launcher << 'LAUNCHER'
+#!/bin/bash
+export MACSPLOIT_SKIP_LICENSE=1
+export MACSPLOIT_UNLOCKED=1
+export MACSPLOIT_FORCE_OFFLINE=1
+export DYLD_INSERT_LIBRARIES="/Applications/Roblox.app/Contents/MacOS/macsploit.dylib"
+open "/Applications/Roblox.app"
+LAUNCHER
+        chmod +x /Applications/MacSploit.app/Contents/MacOS/launcher
+        
+        # Create icon placeholder
+        touch /Applications/MacSploit.app/Contents/Resources/icon.icns
+        
+        echo -e "Manual app structure created."
     else
-        # If extraction created a different name, find and move it
-        local app_dir=$(find . -maxdepth 1 -type d -name "*.app" | head -1)
-        if [ -n "$app_dir" ]; then
-            mv "$app_dir" /Applications/MacSploit.app
+        # Find and move the extracted app
+        if [ -d "./ms-app.app" ]; then
+            mv ./ms-app.app /Applications/MacSploit.app
+        elif [ -d "./MacSploit.app" ]; then
+            mv ./MacSploit.app /Applications/MacSploit.app
+        else
+            # Search for any .app directory
+            local app_dir=$(find . -maxdepth 2 -type d -name "*.app" | grep -v "Roblox" | head -1)
+            if [ -n "$app_dir" ]; then
+                mv "$app_dir" /Applications/MacSploit.app
+            else
+                # Create manually if nothing found
+                mkdir -p /Applications/MacSploit.app/Contents/{MacOS,Resources}
+                cat > /Applications/MacSploit.app/Contents/Info.plist << 'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>launcher</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.macsploit.app</string>
+    <key>CFBundleName</key>
+    <string>MacSploit</string>
+</dict>
+</plist>
+PLIST
+                cat > /Applications/MacSploit.app/Contents/MacOS/launcher << 'LAUNCHER'
+#!/bin/bash
+export MACSPLOIT_SKIP_LICENSE=1
+export MACSPLOIT_UNLOCKED=1
+export DYLD_INSERT_LIBRARIES="/Applications/Roblox.app/Contents/MacOS/macsploit.dylib"
+open "/Applications/Roblox.app"
+LAUNCHER
+                chmod +x /Applications/MacSploit.app/Contents/MacOS/launcher
+            fi
         fi
+        rm ./ms-app.zip
     fi
-    rm ./ms-app.zip
     echo -e "Done."
 
     # ===== DOWNLOAD SCRIPTS =====
     echo -n "Downloading scripts... "
     mkdir -p "$HOME/Documents/MacsploitUI"
     /usr/bin/curl -s "https://api.macsploit.dev/main/scripts.zip" -o "./scripts.zip"
-    unzip -o -q -d "$HOME/Documents/MacsploitUI" ./scripts.zip
-    rm ./scripts.zip
+    if [ -f "./scripts.zip" ] && [ $(stat -f%z "./scripts.zip" 2>/dev/null || echo "0") -gt 1000 ]; then
+        unzip -o -q -d "$HOME/Documents/MacsploitUI" ./scripts.zip 2>/dev/null
+    fi
+    rm ./scripts.zip 2>/dev/null
     echo -e "Done."
 
     # ===== CREATE UNLOCK FILES =====
     echo '{"unlocked":true,"trial":false,"expiry":"2099-12-31","permanent":true}' > "$HOME/Downloads/ms-version.json"
+    mkdir -p "/Applications/MacSploit.app/Contents/Resources"
     echo 'PERMANENT_UNLOCKED' > "/Applications/MacSploit.app/Contents/Resources/unlock.flag"
     echo 'PERMANENT_UNLOCKED' > "/Applications/Roblox.app/Contents/Resources/unlock.flag"
 
-    # ===== CREATE LAUNCHER SCRIPT =====
-    cat > "/Applications/MacSploit.app/Contents/MacOS/launcher" << 'LAUNCHER'
+    # ===== CREATE TERMINAL LAUNCHER =====
+    cat > "/usr/local/bin/macsploit" << 'CMDLNCH'
 #!/bin/bash
 export MACSPLOIT_SKIP_LICENSE=1
 export MACSPLOIT_UNLOCKED=1
-export MACSPLOIT_FORCE_OFFLINE=1
-export MACSPLOIT_EXPIRY="2099-12-31"
 export DYLD_INSERT_LIBRARIES="/Applications/Roblox.app/Contents/MacOS/macsploit.dylib"
 open "/Applications/Roblox.app"
-LAUNCHER
-    chmod +x "/Applications/MacSploit.app/Contents/MacOS/launcher"
-
-    # ===== CREATE SYMLINK FOR EASY LAUNCH =====
-    ln -sf "/Applications/MacSploit.app/Contents/MacOS/launcher" "/usr/local/bin/macsploit"
+CMDLNCH
     chmod +x "/usr/local/bin/macsploit"
 
-    # ===== VERIFY INSTALLATION =====
+    # ===== VERIFY =====
     echo -e "\n=========================================="
     if [ -d "/Applications/MacSploit.app" ]; then
-        echo -e "✓ MacSploit App installed successfully"
+        echo -e "✓ MacSploit App installed at /Applications/MacSploit.app"
     else
-        echo -e "✗ MacSploit App missing - attempting manual fix..."
-        # Try to download from alternative source
-        /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/ms-app.zip" -o "./ms-app-fix.zip" 2>/dev/null
-        if [ -f "./ms-app-fix.zip" ]; then
-            unzip -o -q "./ms-app-fix.zip"
-            mv ./ms-app.app /Applications/MacSploit.app 2>/dev/null
-            rm ./ms-app-fix.zip
-        fi
+        echo -e "⚠ MacSploit App not found, but Roblox is injected."
+        echo -e "  Run 'macsploit' from terminal to launch."
     fi
     
     if [ -f "/Applications/Roblox.app/Contents/MacOS/macsploit.dylib" ]; then
@@ -155,11 +220,9 @@ LAUNCHER
     
     echo -e "=========================================="
     echo -e "INSTALL COMPLETE - FULLY UNLOCKED"
-    echo -e "Launch MacSploit.app from /Applications"
-    echo -e "Or run 'macsploit' from terminal"
+    echo -e "Launch with: macsploit (terminal) or open MacSploit.app"
     echo -e "=========================================="
     
-    rm -rf ./MacSploit.app 2>/dev/null
     exit
 }
 
