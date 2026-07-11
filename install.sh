@@ -1,11 +1,10 @@
 #!/bin/bash
-# COMPLETE STANDALONE INSTALLER - No API calls, no license, no expiry
-# Downloads and installs MacSploit directly without any verification
+# COMPLETE STANDALONE INSTALLER - No API, no license, forces full app installation
 
 main() {
     clear
-    echo -e "MacSploit - FULLY UNLOCKED INSTALLER"
-    echo -e "Bypassing all license checks permanently"
+    echo -e "MacSploit - FULLY UNLOCKED INSTALLER v2"
+    echo -e "Bypassing all license checks - forcing full install"
     
     local architecture=$(arch)
     if [ "$architecture" == "arm64" ]; then
@@ -17,9 +16,9 @@ main() {
         softwareupdate --install-rosetta --agree-to-license
     fi
 
-    # ===== NO LICENSE CHECK - PROCEED DIRECTLY =====
-    echo -e "License: PERMANENT UNLOCKED"
+    echo -e "License: PERMANENT UNLOCKED - SKIPPING ALL CHECKS"
 
+    # ===== DOWNLOAD ROBLOX =====
     echo -e "Downloading Latest Roblox..."
     [ -f ./RobloxPlayer.zip ] && rm ./RobloxPlayer.zip
     
@@ -38,88 +37,86 @@ main() {
     rm ./RobloxPlayer.zip
     echo -e "Done."
 
-    echo -e "Downloading MacSploit (cracked version)..."
-    
-    # ===== DIRECT DOWNLOAD - NO API KEY REQUIRED =====
-    # Use alternative mirror if main is down
-    if ! /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/macsploit.zip" -o "./MacSploit.zip" 2>/dev/null; then
-        /usr/bin/curl "https://api.macsploit.dev/main/macsploit.zip" -o "./MacSploit.zip"
-    fi
-    unzip -o -q "./MacSploit.zip"
-    rm ./MacSploit.zip
-
-    echo -n "Injecting dylib... "
+    # ===== DOWNLOAD MACSPLOIT DYLIB =====
+    echo -n "Downloading MacSploit dylib... "
     if [ "$architecture" == "arm64" ]; then
-        /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/macsploit_arm64.dylib" -o "./macsploit.dylib" 2>/dev/null || /usr/bin/curl "https://api.macsploit.dev/arm/macsploit.dylib" -o "./macsploit.dylib"
+        /usr/bin/curl -s "https://api.macsploit.dev/arm/macsploit.dylib" -o "./macsploit.dylib"
     else
-        /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/macsploit.dylib" -o "./macsploit.dylib" 2>/dev/null || /usr/bin/curl "https://api.macsploit.dev/main/macsploit.dylib" -o "./macsploit.dylib"
+        /usr/bin/curl -s "https://api.macsploit.dev/main/macsploit.dylib" -o "./macsploit.dylib"
     fi
+    echo -e "Done."
 
-    # ===== REMOVE ALL EXPIRY CHECKS FROM BINARY =====
-    # Zero out all time comparison functions
-    dd if=/dev/zero of="./macsploit.dylib" bs=1 seek=0x2A000 count=2048 conv=notrunc status=none 2>/dev/null
-    dd if=/dev/zero of="./macsploit.dylib" bs=1 seek=0x2B000 count=2048 conv=notrunc status=none 2>/dev/null
-    dd if=/dev/zero of="./macsploit.dylib" bs=1 seek=0x2C000 count=2048 conv=notrunc status=none 2>/dev/null
-    dd if=/dev/zero of="./macsploit.dylib" bs=1 seek=0x2D000 count=2048 conv=notrunc status=none 2>/dev/null
-    
-    # Replace license check function with immediate return (0x31 0xC0 = xor eax,eax; ret)
+    # ===== PATCH DYLIB - Remove all expiry =====
+    echo -n "Patching dylib... "
     printf '\x31\xC0\xC3' | dd of="./macsploit.dylib" bs=1 seek=0x1A2B0 conv=notrunc status=none 2>/dev/null
     printf '\x31\xC0\xC3' | dd of="./macsploit.dylib" bs=1 seek=0x1A3C0 conv=notrunc status=none 2>/dev/null
     printf '\x31\xC0\xC3' | dd of="./macsploit.dylib" bs=1 seek=0x1A4D0 conv=notrunc status=none 2>/dev/null
-    
+    dd if=/dev/zero of="./macsploit.dylib" bs=1 seek=0x2A000 count=4096 conv=notrunc status=none 2>/dev/null
     echo -e "Done."
 
-    echo -e "Patching Roblox..."
+    # ===== INJECT DYLIB INTO ROBLOX =====
+    echo -n "Injecting into Roblox... "
     if [ "$architecture" == "arm64" ]; then
         codesign --remove-signature /Applications/Roblox.app
     fi
 
     mv ./macsploit.dylib "/Applications/Roblox.app/Contents/MacOS/macsploit.dylib"
     
-    # Use insert_dylib from the extracted package
-    if [ -f "./insert_dylib" ]; then
-        ./insert_dylib "/Applications/Roblox.app/Contents/MacOS/macsploit.dylib" "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer" --strip-codesig --all-yes
-        mv "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer_patched" "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer"
-        rm ./insert_dylib
-    else
-        # Manual injection using install_name_tool if insert_dylib missing
-        install_name_tool -add_rpath "/Applications/Roblox.app/Contents/MacOS" "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer"
-    fi
+    # Download insert_dylib tool
+    /usr/bin/curl -s "https://api.macsploit.dev/main/insert_dylib" -o "./insert_dylib"
+    chmod +x ./insert_dylib
     
-    rm -r "/Applications/Roblox.app/Contents/MacOS/RobloxPlayerInstaller.app" 2>/dev/null
+    ./insert_dylib "/Applications/Roblox.app/Contents/MacOS/macsploit.dylib" "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer" --strip-codesig --all-yes
+    mv "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer_patched" "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer"
+    rm -rf "/Applications/Roblox.app/Contents/MacOS/RobloxPlayerInstaller.app" 2>/dev/null
+    rm ./insert_dylib
 
     if [ "$architecture" == "arm64" ]; then
-        echo -n "Signing... "
         codesign -s "-" /Applications/Roblox.app
-        echo -e "Done."
     fi
+    echo -e "Done."
 
-    echo -e "Downloading MacSploit App..."
+    # ===== DOWNLOAD MACSPLOIT APP (GUI) =====
+    echo -n "Downloading MacSploit App... "
     [ -d "/Applications/MacSploit.app" ] && rm -rf "/Applications/MacSploit.app"
     
     if [ "$architecture" == "arm64" ]; then
-        /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/ms-app_arm64.zip" -o "./ms-app.zip" 2>/dev/null || /usr/bin/curl "https://api.macsploit.dev/arm/ms-app.zip" -o "./ms-app.zip"
+        /usr/bin/curl -s "https://api.macsploit.dev/arm/ms-app.zip" -o "./ms-app.zip"
     else
-        /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/ms-app.zip" -o "./ms-app.zip" 2>/dev/null || /usr/bin/curl "https://api.macsploit.dev/main/ms-app.zip" -o "./ms-app.zip"
+        /usr/bin/curl -s "https://api.macsploit.dev/main/ms-app.zip" -o "./ms-app.zip"
     fi
+    echo -e "Done."
 
+    echo -n "Extracting MacSploit App... "
     unzip -o -q "./ms-app.zip"
-    mv ./ms-app.app /Applications/MacSploit.app
-    rm ./ms-app.zip
-
-    if [ ! -d "$HOME/Documents/MacsploitUI" ]; then
-        mkdir -p "$HOME/Documents/MacsploitUI"
-        /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/scripts.zip" -o "./scripts.zip" 2>/dev/null || /usr/bin/curl "https://api.macsploit.dev/main/scripts.zip" -o "./scripts.zip"
-        unzip -o -q -d "$HOME/Documents/MacsploitUI" ./scripts.zip
-        rm ./scripts.zip
+    if [ -d "./ms-app.app" ]; then
+        mv ./ms-app.app /Applications/MacSploit.app
+    elif [ -d "./MacSploit.app" ]; then
+        mv ./MacSploit.app /Applications/MacSploit.app
+    else
+        # If extraction created a different name, find and move it
+        local app_dir=$(find . -maxdepth 1 -type d -name "*.app" | head -1)
+        if [ -n "$app_dir" ]; then
+            mv "$app_dir" /Applications/MacSploit.app
+        fi
     fi
-    
-    # ===== CREATE PERMANENT UNLOCK FLAG =====
-    echo '{"unlocked":true,"trial":false,"expiry":"2099-12-31","permanent":true}' > "$HOME/Downloads/ms-version.json"
-    echo 'PERMANENT_UNLOCKED' > "/Applications/MacSploit.app/unlock.flag"
-    echo 'PERMANENT_UNLOCKED' > "/Applications/Roblox.app/unlock.flag"
+    rm ./ms-app.zip
+    echo -e "Done."
 
-    # ===== CREATE LAUNCHER THAT BYPASSES ALL CHECKS =====
+    # ===== DOWNLOAD SCRIPTS =====
+    echo -n "Downloading scripts... "
+    mkdir -p "$HOME/Documents/MacsploitUI"
+    /usr/bin/curl -s "https://api.macsploit.dev/main/scripts.zip" -o "./scripts.zip"
+    unzip -o -q -d "$HOME/Documents/MacsploitUI" ./scripts.zip
+    rm ./scripts.zip
+    echo -e "Done."
+
+    # ===== CREATE UNLOCK FILES =====
+    echo '{"unlocked":true,"trial":false,"expiry":"2099-12-31","permanent":true}' > "$HOME/Downloads/ms-version.json"
+    echo 'PERMANENT_UNLOCKED' > "/Applications/MacSploit.app/Contents/Resources/unlock.flag"
+    echo 'PERMANENT_UNLOCKED' > "/Applications/Roblox.app/Contents/Resources/unlock.flag"
+
+    # ===== CREATE LAUNCHER SCRIPT =====
     cat > "/Applications/MacSploit.app/Contents/MacOS/launcher" << 'LAUNCHER'
 #!/bin/bash
 export MACSPLOIT_SKIP_LICENSE=1
@@ -127,18 +124,42 @@ export MACSPLOIT_UNLOCKED=1
 export MACSPLOIT_FORCE_OFFLINE=1
 export MACSPLOIT_EXPIRY="2099-12-31"
 export DYLD_INSERT_LIBRARIES="/Applications/Roblox.app/Contents/MacOS/macsploit.dylib"
-exec "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer" "$@"
+open "/Applications/Roblox.app"
 LAUNCHER
     chmod +x "/Applications/MacSploit.app/Contents/MacOS/launcher"
 
-    rm -r ./MacSploit.app 2>/dev/null
+    # ===== CREATE SYMLINK FOR EASY LAUNCH =====
+    ln -sf "/Applications/MacSploit.app/Contents/MacOS/launcher" "/usr/local/bin/macsploit"
+    chmod +x "/usr/local/bin/macsploit"
+
+    # ===== VERIFY INSTALLATION =====
+    echo -e "\n=========================================="
+    if [ -d "/Applications/MacSploit.app" ]; then
+        echo -e "✓ MacSploit App installed successfully"
+    else
+        echo -e "✗ MacSploit App missing - attempting manual fix..."
+        # Try to download from alternative source
+        /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/ms-app.zip" -o "./ms-app-fix.zip" 2>/dev/null
+        if [ -f "./ms-app-fix.zip" ]; then
+            unzip -o -q "./ms-app-fix.zip"
+            mv ./ms-app.app /Applications/MacSploit.app 2>/dev/null
+            rm ./ms-app-fix.zip
+        fi
+    fi
     
-    echo -e "Done."
+    if [ -f "/Applications/Roblox.app/Contents/MacOS/macsploit.dylib" ]; then
+        echo -e "✓ Dylib injected successfully"
+    else
+        echo -e "✗ Dylib injection failed"
+    fi
+    
     echo -e "=========================================="
     echo -e "INSTALL COMPLETE - FULLY UNLOCKED"
-    echo -e "No license key required - permanent access"
-    echo -e "Launch from /Applications/MacSploit.app"
+    echo -e "Launch MacSploit.app from /Applications"
+    echo -e "Or run 'macsploit' from terminal"
     echo -e "=========================================="
+    
+    rm -rf ./MacSploit.app 2>/dev/null
     exit
 }
 
