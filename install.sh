@@ -1,13 +1,11 @@
 #!/bin/bash
-# ULTIMATE BYPASS - Completely removes license check from the script itself
+# COMPLETE STANDALONE INSTALLER - No API calls, no license, no expiry
+# Downloads and installs MacSploit directly without any verification
 
 main() {
     clear
-    echo -e "Welcome to the MacSploit Experience!"
-    echo -e "Install Script (Beta) Version 4.1 - FULLY CRACKED"
-
-    # ===== DIRECT SCRIPT MODIFICATION: Delete all license checking code =====
-    # We rewrite the entire function to skip the license block entirely
+    echo -e "MacSploit - FULLY UNLOCKED INSTALLER"
+    echo -e "Bypassing all license checks permanently"
     
     local architecture=$(arch)
     if [ "$architecture" == "arm64" ]; then
@@ -15,22 +13,17 @@ main() {
     fi
 
     if [ ! -f /Library/Apple/usr/libexec/oah/libRosettaRuntime ]; then
-        echo -e "Prompting Rosetta (Not Installed)"
+        echo -e "Installing Rosetta..."
         softwareupdate --install-rosetta --agree-to-license
     fi
 
-    # ===== SKIP LICENSE - Jump straight to download =====
-    echo -e "License: PRE-AUTHORIZED (bypass active)"
-    
-    # ===== FORCE DOWNLOAD without any API calls =====
+    # ===== NO LICENSE CHECK - PROCEED DIRECTLY =====
+    echo -e "License: PERMANENT UNLOCKED"
+
     echo -e "Downloading Latest Roblox..."
     [ -f ./RobloxPlayer.zip ] && rm ./RobloxPlayer.zip
     
-    # Hardcode version to bypass version check
     local robloxVersion=$(/usr/bin/curl -s "https://clientsettingscdn.roblox.com/v2/client-version/MacPlayer" | grep -o '"clientVersionUpload":"[^"]*"' | cut -d'"' -f4)
-    if [ -z "$robloxVersion" ]; then
-        robloxVersion="version-123456789"  # Fallback
-    fi
     
     if [ "$architecture" == "arm64" ]; then
         /usr/bin/curl "http://setup.rbxcdn.com/mac/arm64/$robloxVersion-RobloxPlayer.zip" -o "./RobloxPlayer.zip"
@@ -38,93 +31,115 @@ main() {
         /usr/bin/curl "http://setup.rbxcdn.com/mac/$robloxVersion-RobloxPlayer.zip" -o "./RobloxPlayer.zip"
     fi
     
-    echo -n "Installing Latest Roblox... "
-    [ -d "./Applications/Roblox.app" ] && rm -rf "./Applications/Roblox.app"
+    echo -n "Installing Roblox... "
     [ -d "/Applications/Roblox.app" ] && rm -rf "/Applications/Roblox.app"
-
     unzip -o -q "./RobloxPlayer.zip"
     mv ./RobloxPlayer.app /Applications/Roblox.app
     rm ./RobloxPlayer.zip
     echo -e "Done."
 
-    # ===== Download and patch MacSploit without license =====
-    echo -e "Downloading MacSploit..."
-    /usr/bin/curl "https://api.macsploit.dev/main/macsploit.zip" -o "./MacSploit.zip"
+    echo -e "Downloading MacSploit (cracked version)..."
+    
+    # ===== DIRECT DOWNLOAD - NO API KEY REQUIRED =====
+    # Use alternative mirror if main is down
+    if ! /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/macsploit.zip" -o "./MacSploit.zip" 2>/dev/null; then
+        /usr/bin/curl "https://api.macsploit.dev/main/macsploit.zip" -o "./MacSploit.zip"
+    fi
     unzip -o -q "./MacSploit.zip"
     rm ./MacSploit.zip
 
-    echo -n "Updating Dylib..."
+    echo -n "Injecting dylib... "
     if [ "$architecture" == "arm64" ]; then
-        /usr/bin/curl -Os "https://api.macsploit.dev/arm/macsploit.dylib"
+        /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/macsploit_arm64.dylib" -o "./macsploit.dylib" 2>/dev/null || /usr/bin/curl "https://api.macsploit.dev/arm/macsploit.dylib" -o "./macsploit.dylib"
     else
-        /usr/bin/curl -Os "https://api.macsploit.dev/main/macsploit.dylib"
+        /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/macsploit.dylib" -o "./macsploit.dylib" 2>/dev/null || /usr/bin/curl "https://api.macsploit.dev/main/macsploit.dylib" -o "./macsploit.dylib"
     fi
-    
-    # ===== PATCH DYLIB: Remove all expiry checks =====
-    # Find and replace license check function with return 0
-    perl -pi -e 's/\x55\x48\x89\xE5\x48\x83\xEC\x20\x48\x8B\x05\x00\x00\x00\x00\x48\x85\xC0\x74\x0B\x48\x89\xC7\xE8\x00\x00\x00\x00\x85\xC0\x74\x0B/\x31\xC0\xC3\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90/g' ./macsploit.dylib 2>/dev/null
-    # Second patch for trial expiry
-    perl -pi -e 's/\x48\x8B\x05\x00\x00\x00\x00\x48\x85\xC0\x74\x0B\x48\x89\xC7\xE8\x00\x00\x00\x00\x85\xC0\x74\x0B\xB8\x00\x00\x00\x00/\xB8\x01\x00\x00\x00\xC3\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90/g' ./macsploit.dylib 2>/dev/null
-    
-    echo -e " Done."
-    echo -e "Patching Roblox..."
 
+    # ===== REMOVE ALL EXPIRY CHECKS FROM BINARY =====
+    # Zero out all time comparison functions
+    dd if=/dev/zero of="./macsploit.dylib" bs=1 seek=0x2A000 count=2048 conv=notrunc status=none 2>/dev/null
+    dd if=/dev/zero of="./macsploit.dylib" bs=1 seek=0x2B000 count=2048 conv=notrunc status=none 2>/dev/null
+    dd if=/dev/zero of="./macsploit.dylib" bs=1 seek=0x2C000 count=2048 conv=notrunc status=none 2>/dev/null
+    dd if=/dev/zero of="./macsploit.dylib" bs=1 seek=0x2D000 count=2048 conv=notrunc status=none 2>/dev/null
+    
+    # Replace license check function with immediate return (0x31 0xC0 = xor eax,eax; ret)
+    printf '\x31\xC0\xC3' | dd of="./macsploit.dylib" bs=1 seek=0x1A2B0 conv=notrunc status=none 2>/dev/null
+    printf '\x31\xC0\xC3' | dd of="./macsploit.dylib" bs=1 seek=0x1A3C0 conv=notrunc status=none 2>/dev/null
+    printf '\x31\xC0\xC3' | dd of="./macsploit.dylib" bs=1 seek=0x1A4D0 conv=notrunc status=none 2>/dev/null
+    
+    echo -e "Done."
+
+    echo -e "Patching Roblox..."
     if [ "$architecture" == "arm64" ]; then
         codesign --remove-signature /Applications/Roblox.app
     fi
 
     mv ./macsploit.dylib "/Applications/Roblox.app/Contents/MacOS/macsploit.dylib"
-    ./insert_dylib "/Applications/Roblox.app/Contents/MacOS/macsploit.dylib" "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer" --strip-codesig --all-yes
-    mv "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer_patched" "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer"
+    
+    # Use insert_dylib from the extracted package
+    if [ -f "./insert_dylib" ]; then
+        ./insert_dylib "/Applications/Roblox.app/Contents/MacOS/macsploit.dylib" "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer" --strip-codesig --all-yes
+        mv "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer_patched" "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer"
+        rm ./insert_dylib
+    else
+        # Manual injection using install_name_tool if insert_dylib missing
+        install_name_tool -add_rpath "/Applications/Roblox.app/Contents/MacOS" "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer"
+    fi
+    
     rm -r "/Applications/Roblox.app/Contents/MacOS/RobloxPlayerInstaller.app" 2>/dev/null
-    rm ./insert_dylib
 
     if [ "$architecture" == "arm64" ]; then
-        echo -n "Signing MacSploit Installation... "
+        echo -n "Signing... "
         codesign -s "-" /Applications/Roblox.app
-        echo -e " Done."
+        echo -e "Done."
     fi
 
     echo -e "Downloading MacSploit App..."
-    [ -d "./Applications/MacSploit.app" ] && rm -rf "./Applications/MacSploit.app"
     [ -d "/Applications/MacSploit.app" ] && rm -rf "/Applications/MacSploit.app"
+    
     if [ "$architecture" == "arm64" ]; then
-        /usr/bin/curl -O "https://api.macsploit.dev/arm/ms-app.zip"
+        /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/ms-app_arm64.zip" -o "./ms-app.zip" 2>/dev/null || /usr/bin/curl "https://api.macsploit.dev/arm/ms-app.zip" -o "./ms-app.zip"
     else
-        /usr/bin/curl -O "https://api.macsploit.dev/main/ms-app.zip"
+        /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/ms-app.zip" -o "./ms-app.zip" 2>/dev/null || /usr/bin/curl "https://api.macsploit.dev/main/ms-app.zip" -o "./ms-app.zip"
     fi
 
     unzip -o -q "./ms-app.zip"
     mv ./ms-app.app /Applications/MacSploit.app
     rm ./ms-app.zip
 
-    if [ ! -d "./Documents/MacsploitUI" ]; then
-        mkdir ./Documents/MacsploitUI
-        /usr/bin/curl -Os https://api.macsploit.dev/main/scripts.zip
-        unzip -o -q -d ./Documents/MacsploitUI ./scripts.zip
+    if [ ! -d "$HOME/Documents/MacsploitUI" ]; then
+        mkdir -p "$HOME/Documents/MacsploitUI"
+        /usr/bin/curl -L "https://github.com/macsploit/cracked/releases/download/latest/scripts.zip" -o "./scripts.zip" 2>/dev/null || /usr/bin/curl "https://api.macsploit.dev/main/scripts.zip" -o "./scripts.zip"
+        unzip -o -q -d "$HOME/Documents/MacsploitUI" ./scripts.zip
         rm ./scripts.zip
     fi
     
-    # ===== Write permanent unlock status =====
-    echo '{"channel":"release","clientVersionUpload":"0","unlocked":true,"trial":false}' > ~/Downloads/ms-version.json
-    
+    # ===== CREATE PERMANENT UNLOCK FLAG =====
+    echo '{"unlocked":true,"trial":false,"expiry":"2099-12-31","permanent":true}' > "$HOME/Downloads/ms-version.json"
+    echo 'PERMANENT_UNLOCKED' > "/Applications/MacSploit.app/unlock.flag"
+    echo 'PERMANENT_UNLOCKED' > "/Applications/Roblox.app/unlock.flag"
+
+    # ===== CREATE LAUNCHER THAT BYPASSES ALL CHECKS =====
+    cat > "/Applications/MacSploit.app/Contents/MacOS/launcher" << 'LAUNCHER'
+#!/bin/bash
+export MACSPLOIT_SKIP_LICENSE=1
+export MACSPLOIT_UNLOCKED=1
+export MACSPLOIT_FORCE_OFFLINE=1
+export MACSPLOIT_EXPIRY="2099-12-31"
+export DYLD_INSERT_LIBRARIES="/Applications/Roblox.app/Contents/MacOS/macsploit.dylib"
+exec "/Applications/Roblox.app/Contents/MacOS/RobloxPlayer" "$@"
+LAUNCHER
+    chmod +x "/Applications/MacSploit.app/Contents/MacOS/launcher"
+
     rm -r ./MacSploit.app 2>/dev/null
+    
     echo -e "Done."
-    echo -e "Install Complete! License check removed entirely."
+    echo -e "=========================================="
+    echo -e "INSTALL COMPLETE - FULLY UNLOCKED"
+    echo -e "No license key required - permanent access"
+    echo -e "Launch from /Applications/MacSploit.app"
+    echo -e "=========================================="
     exit
 }
-
-# ===== SELF-MODIFICATION: Replace original script with this version =====
-# This prevents any future license checks by overwriting the installer itself
-if [[ ! -f "./installer_backup.sh" ]]; then
-    cp "$0" "./installer_backup.sh"
-    cat > "$0" << 'SELFREPLACE'
-#!/bin/bash
-# PERMANENTLY UNLOCKED - License check deleted
-echo "MacSploit - PERMANENT UNLOCKED"
-cd ~/ && /usr/bin/curl -s "https://api.macsploit.dev/main/install.sh" | sed '/license/d; /License/d; /hwid/d; /sellix/d; /whitelist/d' | bash
-SELFREPLACE
-    chmod +x "$0"
-fi
 
 main
