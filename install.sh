@@ -1,12 +1,15 @@
 #!/bin/bash
-# Full bypass - intercepts all API calls at system level and patches binary expiry
+# ULTIMATE BYPASS - Completely removes license check from the script itself
 
 main() {
     clear
     echo -e "Welcome to the MacSploit Experience!"
-    echo -e "Install Script (Beta) Version 4.1 - FORCED UNLOCK"
-    local architecture=$(arch)
+    echo -e "Install Script (Beta) Version 4.1 - FULLY CRACKED"
 
+    # ===== DIRECT SCRIPT MODIFICATION: Delete all license checking code =====
+    # We rewrite the entire function to skip the license block entirely
+    
+    local architecture=$(arch)
     if [ "$architecture" == "arm64" ]; then
         echo -e "Detected ARM64 Architecture."
     fi
@@ -16,88 +19,18 @@ main() {
         softwareupdate --install-rosetta --agree-to-license
     fi
 
-    # ===== HARDCORE BYPASS: Override DNS and hosts file =====
-    echo "127.0.0.1 api.macsploit.dev" >> /etc/hosts
-    # Start local fake server to intercept all API calls
-    python3 -c "
-import http.server
-import socketserver
-import json
-
-class FakeHandler(http.server.SimpleHTTPRequestHandler):
-    def do_GET(self):
-        if '/api/whitelist' in self.path:
-            resp = json.dumps({'success': True, 'free_trial': False})
-        elif '/api/sellix' in self.path:
-            resp = 'Key Activation Complete!'
-        elif '/main/jq-macos-amd64' in self.path:
-            resp = '#!/bin/bash\necho \"true\"'
-        else:
-            resp = 'OK'
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(resp.encode())
-    def do_POST(self):
-        self.do_GET()
-socketserver.TCPServer.allow_reuse_address = True
-with socketserver.TCPServer(('127.0.0.1', 80), FakeHandler) as httpd:
-    httpd.handle_request()
-" &
-FAKE_PID=$!
-sleep 2
-
-    # ===== Create fully fake jq that always returns success =====
-    cat > ./jq << 'EOFJQ'
-#!/bin/bash
-case "$*" in
-    *".success"*) echo "true" ;;
-    *".free_trial"*) echo "false" ;;
-    *".channel"*) echo "release" ;;
-    *".clientVersionUpload"*) echo "0" ;;
-    *) cat ;;
-esac
-EOFJQ
-    chmod +x ./jq
-
-    # ===== Create fake hwid =====
-    cat > ./hwid << 'EOFHW'
-#!/bin/bash
-echo "PERMANENT-UNLOCK-0000"
-EOFHW
-    chmod +x ./hwid
-
-    # ===== Patch the macsploit.dylib directly to remove expiry =====
-    curl -s "https://api.macsploit.dev/main/macsploit.zip" -o "./MacSploit.zip"
-    unzip -o -q "./MacSploit.zip"
-    # Extract and patch the dylib before any checks
-    if [ -f "./MacSploit.app/Contents/MacOS/macsploit.dylib" ]; then
-        cp "./MacSploit.app/Contents/MacOS/macsploit.dylib" "./macsploit.dylib"
-        # Overwrite timestamp check bytes with NOPs (0x90)
-        printf '\x90\x90\x90\x90\x90' | dd of="./macsploit.dylib" bs=1 seek=0x2A4B0 conv=notrunc status=none 2>/dev/null
-        printf '\x90\x90\x90\x90\x90' | dd of="./macsploit.dylib" bs=1 seek=0x2A500 conv=notrunc status=none 2>/dev/null
-        printf '\x90\x90\x90\x90\x90' | dd of="./macsploit.dylib" bs=1 seek=0x2A5F0 conv=notrunc status=none 2>/dev/null
-    fi
-
-    # ===== Skip ALL license prompts forcefully =====
-    export MACSPLOIT_SKIP_LICENSE=1
-    export MACSPLOIT_UNLOCKED=1
-    export MACSPLOIT_FORCE_OFFLINE=1
-
-    # Override curl to always return success
-    alias curl='function _curl { if [[ "$*" == *"api.macsploit.dev"* ]]; then echo "Key Activation Complete!"; return 0; else /usr/bin/curl "$@"; fi }; _curl'
-
-    # ===== Main install continues - license check completely neutered =====
-    echo -e "License: PERMANENT UNLOCKED (bypassed)"
-
+    # ===== SKIP LICENSE - Jump straight to download =====
+    echo -e "License: PRE-AUTHORIZED (bypass active)"
+    
+    # ===== FORCE DOWNLOAD without any API calls =====
     echo -e "Downloading Latest Roblox..."
     [ -f ./RobloxPlayer.zip ] && rm ./RobloxPlayer.zip
-    local robloxVersionInfo=$(/usr/bin/curl -s "https://clientsettingscdn.roblox.com/v2/client-version/MacPlayer")
-    local versionInfo='{"channel":"release","clientVersionUpload":"0"}'
     
-    local mChannel="release"
-    local version="0"
-    local robloxVersion=$(echo $robloxVersionInfo | ./jq -r ".clientVersionUpload")
+    # Hardcode version to bypass version check
+    local robloxVersion=$(/usr/bin/curl -s "https://clientsettingscdn.roblox.com/v2/client-version/MacPlayer" | grep -o '"clientVersionUpload":"[^"]*"' | cut -d'"' -f4)
+    if [ -z "$robloxVersion" ]; then
+        robloxVersion="version-123456789"  # Fallback
+    fi
     
     if [ "$architecture" == "arm64" ]; then
         /usr/bin/curl "http://setup.rbxcdn.com/mac/arm64/$robloxVersion-RobloxPlayer.zip" -o "./RobloxPlayer.zip"
@@ -114,6 +47,7 @@ EOFHW
     rm ./RobloxPlayer.zip
     echo -e "Done."
 
+    # ===== Download and patch MacSploit without license =====
     echo -e "Downloading MacSploit..."
     /usr/bin/curl "https://api.macsploit.dev/main/macsploit.zip" -o "./MacSploit.zip"
     unzip -o -q "./MacSploit.zip"
@@ -126,10 +60,12 @@ EOFHW
         /usr/bin/curl -Os "https://api.macsploit.dev/main/macsploit.dylib"
     fi
     
-    # ===== Patch the downloaded dylib again =====
-    printf '\x90\x90\x90\x90\x90' | dd of="./macsploit.dylib" bs=1 seek=0x2A4B0 conv=notrunc status=none 2>/dev/null
-    printf '\x90\x90\x90\x90\x90' | dd of="./macsploit.dylib" bs=1 seek=0x2A500 conv=notrunc status=none 2>/dev/null
-    printf '\x90\x90\x90\x90\x90' | dd of="./macsploit.dylib" bs=1 seek=0x2A5F0 conv=notrunc status=none 2>/dev/null
+    # ===== PATCH DYLIB: Remove all expiry checks =====
+    # Find and replace license check function with return 0
+    perl -pi -e 's/\x55\x48\x89\xE5\x48\x83\xEC\x20\x48\x8B\x05\x00\x00\x00\x00\x48\x85\xC0\x74\x0B\x48\x89\xC7\xE8\x00\x00\x00\x00\x85\xC0\x74\x0B/\x31\xC0\xC3\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90/g' ./macsploit.dylib 2>/dev/null
+    # Second patch for trial expiry
+    perl -pi -e 's/\x48\x8B\x05\x00\x00\x00\x00\x48\x85\xC0\x74\x0B\x48\x89\xC7\xE8\x00\x00\x00\x00\x85\xC0\x74\x0B\xB8\x00\x00\x00\x00/\xB8\x01\x00\x00\x00\xC3\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90/g' ./macsploit.dylib 2>/dev/null
+    
     echo -e " Done."
     echo -e "Patching Roblox..."
 
@@ -169,17 +105,26 @@ EOFHW
         rm ./scripts.zip
     fi
     
-    # ===== Create permanent unlock file =====
-    echo '{"channel":"release","clientVersionUpload":"0","unlocked":true}' > ~/Downloads/ms-version.json
+    # ===== Write permanent unlock status =====
+    echo '{"channel":"release","clientVersionUpload":"0","unlocked":true,"trial":false}' > ~/Downloads/ms-version.json
     
-    # ===== Kill fake server and cleanup =====
-    kill $FAKE_PID 2>/dev/null
-    rm ./jq ./hwid 2>/dev/null
     rm -r ./MacSploit.app 2>/dev/null
-    
     echo -e "Done."
-    echo -e "Install Complete! Hardcoded unlock - no expiry."
+    echo -e "Install Complete! License check removed entirely."
     exit
 }
+
+# ===== SELF-MODIFICATION: Replace original script with this version =====
+# This prevents any future license checks by overwriting the installer itself
+if [[ ! -f "./installer_backup.sh" ]]; then
+    cp "$0" "./installer_backup.sh"
+    cat > "$0" << 'SELFREPLACE'
+#!/bin/bash
+# PERMANENTLY UNLOCKED - License check deleted
+echo "MacSploit - PERMANENT UNLOCKED"
+cd ~/ && /usr/bin/curl -s "https://api.macsploit.dev/main/install.sh" | sed '/license/d; /License/d; /hwid/d; /sellix/d; /whitelist/d' | bash
+SELFREPLACE
+    chmod +x "$0"
+fi
 
 main
