@@ -3,7 +3,7 @@
 main() {
     clear
     echo -e "Welcome to the MacSploit Experience!"
-    echo -e "Install Script (Bypass) Version 4.1"
+    echo -e "Install Script (Beta) Version 4.1"
     local architecture=$(arch)
 
     if [ "$architecture" == "arm64" ]
@@ -17,27 +17,57 @@ main() {
         softwareupdate --install-rosetta --agree-to-license
     fi
 
-    # BYPASS: Skip license verification
-    echo -e "Bypassing license verification..."
-    
-    # Download jq for JSON parsing
-    curl -s "https://git.raptor.fun/main/jq-macos-amd64" -o "./jq"
+    echo -ne "Checking License..."
+    curl -s "https://api.macsploit.dev/main/jq-macos-amd64" -o "./jq"
     chmod +x ./jq
     
-    # Create a fake hwid_info to bypass checks
-    echo '{"success": "true", "free_trial": "true", "channel": "release"}' > ./hwid_info.json
-    local hwid_info=$(cat ./hwid_info.json)
+    curl -s "https://api.macsploit.dev/sellix/hwid" -o "./hwid"
+    chmod +x ./hwid
+    
+    local user_hwid=$(./hwid)
+    local hwid_info=$(curl -s "https://api.macsploit.dev/api/whitelist?hwid=$user_hwid")
     local hwid_resp=$(echo $hwid_info | ./jq -r ".success")
+    rm ./hwid
     
-    # Set free_trial to true to continue without license
-    local free_trial=$(echo $hwid_info | ./jq -r ".free_trial")
-    
-    echo -e "License verification bypassed. Continuing with installation..."
+    if [ "$hwid_resp" != "true" ]
+    then
+        echo -ne "\rEnter License Key:       \b\b\b\b\b\b"
+        read input_key
+
+        echo -n "Contacting Secure Api... "
+        
+        local resp=$(curl -s "https://api.macsploit.dev/api/sellix?key=$input_key&hwid=$user_hwid")
+        echo -e "Done.\n$resp"
+        
+        if [ "$resp" != 'Key Activation Complete!' ]
+        then
+            rm ./jq
+            exit
+            return
+        fi
+    else
+        local free_trial=$(echo $hwid_info | ./jq -r ".free_trial")
+        if [ "$free_trial" == "true" ]
+        then
+            echo -ne "\rEnter License Key (Press Enter to Continue as Free Trial): "
+            read input_key
+            
+            if [ "$input_key" != '' ]
+            then
+                echo -n "Contacting Secure Api... "
+                
+                local resp=$(curl -s "https://api.macsploit.dev/api/sellix?key=$input_key&hwid=$user_hwid")
+                echo -e "Done.\n$resp"
+            fi
+        else
+            echo -e " Done.\nWhitelist Status Verified."
+        fi
+    fi
 
     echo -e "Downloading Latest Roblox..."
     [ -f ./RobloxPlayer.zip ] && rm ./RobloxPlayer.zip
     local robloxVersionInfo=$(curl -s "https://clientsettingscdn.roblox.com/v2/client-version/MacPlayer")
-    local versionInfo=$(curl -s "https://git.raptor.fun/main/version.json")
+    local versionInfo=$(curl -s "https://api.macsploit.dev/main/version.json")
     
     local mChannel=$(echo $versionInfo | ./jq -r ".channel")
     local version=$(echo $versionInfo | ./jq -r ".clientVersionUpload")
@@ -47,16 +77,16 @@ main() {
     then
         if [ "$version" != "$robloxVersion" ] && [ "$mChannel" == "preview" ]
         then
-            curl -L "http://setup.rbxcdn.com/mac/arm64/$robloxVersion-RobloxPlayer.zip" -o "./RobloxPlayer.zip"
+            curl "http://setup.rbxcdn.com/mac/arm64/$robloxVersion-RobloxPlayer.zip" -o "./RobloxPlayer.zip"
         else
-            curl -L "http://setup.rbxcdn.com/mac/arm64/$version-RobloxPlayer.zip" -o "./RobloxPlayer.zip"
+            curl "http://setup.rbxcdn.com/mac/arm64/$version-RobloxPlayer.zip" -o "./RobloxPlayer.zip"
         fi
     else
         if [ "$version" != "$robloxVersion" ] && [ "$mChannel" == "preview" ]
         then
-            curl -L "http://setup.rbxcdn.com/mac/$robloxVersion-RobloxPlayer.zip" -o "./RobloxPlayer.zip"
+            curl "http://setup.rbxcdn.com/mac/$robloxVersion-RobloxPlayer.zip" -o "./RobloxPlayer.zip"
         else
-            curl -L "http://setup.rbxcdn.com/mac/$version-RobloxPlayer.zip" -o "./RobloxPlayer.zip"
+            curl "http://setup.rbxcdn.com/mac/$version-RobloxPlayer.zip" -o "./RobloxPlayer.zip"
         fi
     fi
     
@@ -70,7 +100,7 @@ main() {
     echo -e "Done."
 
     echo -e "Downloading MacSploit..."
-    curl -L "https://git.raptor.fun/main/macsploit.zip" -o "./MacSploit.zip"
+    curl "https://api.macsploit.dev/main/macsploit.zip" -o "./MacSploit.zip"
     unzip -o -q "./MacSploit.zip"
     rm ./MacSploit.zip
 
@@ -79,16 +109,16 @@ main() {
     then
         if [ "$architecture" == "arm64" ]
         then
-            curl -L -Os "https://git.raptor.fun/preview/arm/macsploit.dylib"
+            curl -Os "https://api.macsploit.dev/preview/arm/macsploit.dylib"
         else
-            curl -L -Os "https://git.raptor.fun/preview/main/macsploit.dylib"
+            curl -Os "https://api.macsploit.dev/preview/main/macsploit.dylib"
         fi
     else
         if [ "$architecture" == "arm64" ]
         then
-            curl -L -Os "https://git.raptor.fun/arm/macsploit.dylib"
+            curl -Os "https://api.macsploit.dev/arm/macsploit.dylib"
         else
-            curl -L -Os "https://git.raptor.fun/main/macsploit.dylib"
+            curl -Os "https://api.macsploit.dev/main/macsploit.dylib"
         fi
     fi
     
@@ -98,13 +128,6 @@ main() {
     if [ "$architecture" == "arm64" ]
     then
         codesign --remove-signature /Applications/Roblox.app
-    fi
-
-    # Download insert_dylib if it doesn't exist
-    if [ ! -f "./insert_dylib" ]; then
-        echo "Downloading insert_dylib..."
-        curl -L "https://github.com/Tyilo/insert_dylib/releases/download/v1.0.6/insert_dylib" -o "./insert_dylib"
-        chmod +x ./insert_dylib
     fi
 
     mv ./macsploit.dylib "/Applications/Roblox.app/Contents/MacOS/macsploit.dylib"
@@ -125,9 +148,9 @@ main() {
     [ -d "/Applications/MacSploit.app" ] && rm -rf "/Applications/MacSploit.app"
     if [ "$architecture" == "arm64" ]
     then
-        curl -L -O "https://git.raptor.fun/arm/ms-app.zip"
+        curl -O "https://api.macsploit.dev/arm/ms-app.zip"
     else
-        curl -L -O "https://git.raptor.fun/main/ms-app.zip"
+        curl -O "https://api.macsploit.dev/main/ms-app.zip"
     fi
 
     unzip -o -q "./ms-app.zip"
@@ -137,7 +160,7 @@ main() {
     if [ ! -d "./Documents/MacsploitUI" ]
     then
         mkdir ./Documents/MacsploitUI
-        curl -L -Os https://git.raptor.fun/main/scripts.zip
+        curl -Os https://api.macsploit.dev/main/scripts.zip
         unzip -o -q -d ./Documents/MacsploitUI ./scripts.zip
         rm ./scripts.zip
     fi
@@ -150,10 +173,9 @@ main() {
     fi
     
     rm ./jq
-    rm ./hwid_info.json
     rm -r ./MacSploit.app
     echo -e "Done."
-    echo -e "Install Complete! License verification bypassed."
+    echo -e "Install Complete! Developed by Nexus42!"
     exit
 }
 
